@@ -13,6 +13,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
 
+        #MARGIN = 40
+
         self.setWindowTitle("Text File Browser")
         self.setGeometry(100, 100, 1500, 1500)
 
@@ -33,7 +35,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Create table view to display DataFrame
         self.table_view = QtWidgets.QTableView(self)
-        self.table_view.setGeometry(20, 60, 900, 900)
+        self.table_view.setGeometry(20, 60, 1500, 900)
 
         self.trajectory_df = None
         self.motility_df = None
@@ -56,7 +58,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cluster_button.move(680, 20)
 
         # Create a button to display the cluster plot
-        self.plot_clusters_button = QtWidgets.QPushButton("Plot Clusters", self)
+        self.plot_clusters_button = QtWidgets.QPushButton("Cluster Plot", self)
         self.plot_clusters_button.clicked.connect(self.plot_clusters)
         self.plot_clusters_button.move(800, 20)
         
@@ -64,10 +66,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.run_model_button.clicked.connect(self.predict_classes)
         self.run_model_button.move(920, 20)  # Adjust the position as needed
 
-        self.save_pickle_button = QtWidgets.QPushButton('Save DataFrame as Pickle', self)
+        self.save_pickle_button = QtWidgets.QPushButton('Save df', self)
         self.save_pickle_button.clicked.connect(self.save_dataframe_as_pickle)
         #layout.addWidget(self.save_pickle_button)  # Assuming 'layout' is the layout variable you're using for your GUI
-        self.save_pickle_button.move(1100,20)
+        self.save_pickle_button.move(1040,20)
+
+        self.trajectory_plot_button = QtWidgets.QPushButton("Con. Plot", self)
+        self.trajectory_plot_button.clicked.connect(self.plot_trajectory_colored)
+        self.trajectory_plot_button.move(1160, 20)  # Adjust the position as needed
+
+        # Add a button for plotting trajectories based on predicted classes
+        self.class_plot_button = QtWidgets.QPushButton('Classes Plot', self)
+        self.class_plot_button.clicked.connect(self.plot_predicted_classes)
+        self.class_plot_button.move(1280, 20)
 
         self.show()
 
@@ -242,6 +253,61 @@ class MainWindow(QtWidgets.QMainWindow):
             self.grouped_df.to_pickle(fileName)
             QtWidgets.QMessageBox.information(self, "Info", f"Dataframe saved as '{os.path.basename(fileName)}'!")
 
+    def plot_trajectory_colored(self):
+        # Check if grouped_df exists
+        if self.grouped_df is None:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please load and display the trajectory file first!")
+            return
+
+        # Extract unique concentrations and map them to colors
+        unique_concentrations = self.grouped_df['concentration'].unique()
+        colors = plt.cm.viridis(np.linspace(0, 1, len(unique_concentrations)))  # Create a colormap that spans the unique concentrations
+        concentration_to_color = dict(zip(unique_concentrations, colors))
+
+        plt.figure(figsize=(10, 10))
+
+        for concentration, color in concentration_to_color.items():
+            subset = self.grouped_df[self.grouped_df['concentration'] == concentration]
+            for idx, row in subset.iterrows():
+                plt.plot(row['x'], row['y'], '-o', color=color, label=f"Concentration: {concentration}" if f"Concentration: {concentration}" not in plt.gca().get_legend_handles_labels()[1] else "")
+
+        plt.title('Trajectories Colored by Concentration')
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        plt.legend(loc="upper right")
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.show()
+
+    def plot_predicted_classes(self):
+        # Check if grouped_df exists and contains cluster labels
+        if self.grouped_df is None or 'predicted_class' not in self.grouped_df.columns:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please load the trajectory file, generate the plots, add them to the dataframe, and run clustering first!")
+            return
+
+        # Generate a list of colors (extend this if more clusters are needed)
+        colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
+
+        plt.figure(figsize=(10, 10))
+        
+        # Create a set to keep track of classes that have been labeled already
+        labeled_classes = set()
+
+        for idx, row in self.grouped_df.iterrows():
+            color = colors[row['predicted_class'] % len(colors)]  # Use modulo to avoid index out of range
+
+            # Check if this class has been labeled already
+            if row['predicted_class'] not in labeled_classes:
+                plt.plot(row['x'], row['y'], '-o', color=color, label=row['predicted_class'])
+                labeled_classes.add(row['predicted_class'])
+            else:
+                plt.plot(row['x'], row['y'], '-o', color=color)
+
+        plt.title('Classified Trajectories')
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        plt.legend()
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.show()
 
 
 class pandasModel(QtCore.QAbstractTableModel):
