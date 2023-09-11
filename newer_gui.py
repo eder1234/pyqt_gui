@@ -205,7 +205,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         for idx, row in self.grouped_df.iterrows():
             color = colors[row['cluster'] % len(colors)]  # Use modulo to avoid index out of range
-            plt.plot(row['x'], row['y'], '-o', color=color)
+            plt.plot(row['x'], row['y'], '-', color=color)
 
         list_cluster = self.grouped_df['cluster'].unique()
         plt.title('Clustered Trajectories')
@@ -269,7 +269,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for concentration, color in concentration_to_color.items():
             subset = self.grouped_df[self.grouped_df['concentration'] == concentration]
             for idx, row in subset.iterrows():
-                plt.plot(row['x'], row['y'], '-o', color=color, label=f"Concentration: {concentration}" if f"Concentration: {concentration}" not in plt.gca().get_legend_handles_labels()[1] else "")
+                plt.plot(row['x'], row['y'], '-', color=color, label=f"Concentration: {concentration}" if f"Concentration: {concentration}" not in plt.gca().get_legend_handles_labels()[1] else "")
 
         plt.title('Trajectories Colored by Concentration')
         plt.xlabel('X')
@@ -297,10 +297,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # Check if this class has been labeled already
             if row['predicted_class'] not in labeled_classes:
-                plt.plot(row['x'], row['y'], '-o', color=color, label=row['predicted_class'])
+                plt.plot(row['x'], row['y'], '-', color=color, label=row['predicted_class'])
                 labeled_classes.add(row['predicted_class'])
             else:
-                plt.plot(row['x'], row['y'], '-o', color=color)
+                plt.plot(row['x'], row['y'], '-', color=color)
 
         plt.title('Classified Trajectories')
         plt.xlabel('X')
