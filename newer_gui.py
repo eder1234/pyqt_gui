@@ -8,6 +8,9 @@ from sklearn.cluster import AgglomerativeClustering
 from tensorflow import keras
 from IPython.display import display
 from skimage.color import gray2rgb
+from PIL import Image
+import io
+from tqdm import tqdm
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -80,6 +83,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.class_plot_button.clicked.connect(self.plot_predicted_classes)
         self.class_plot_button.move(1280, 20)
 
+        # Create a button to load dataframe
+        self.load_df_button = QtWidgets.QPushButton("Load DataFrame", self)
+        self.load_df_button.clicked.connect(self.load_dataframe)
+        self.load_df_button.move(1400, 20)  # Adjust the position as needed
+
+
         self.show()
 
     def load_trajectory_file(self):
@@ -130,35 +139,36 @@ class MainWindow(QtWidgets.QMainWindow):
             self.table_view.setModel(model)
 
     def generate_plots(self):
-        # Check if grouped_df exists
         if self.grouped_df is None:
             QtWidgets.QMessageBox.warning(self, "Warning", "Please load and display the trajectory file first!")
             return
 
-        # Create a directory to store the plots
-        output_dir = "plots"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
         image_arrays = []
 
         # Generate plots for each element in grouped_df
-        for idx, row in self.grouped_df.iterrows():
+        for idx, row in tqdm(self.grouped_df.iterrows(), total=len(self.grouped_df), desc="Generating Images"):
             plt.figure(figsize=(1, 1), dpi=60)  # 1x1 inch figure at 60 dpi results in 60x60 pixel image
-            # size is not fixed
             plt.plot(row['centered_x'], row['centered_y'], '-', color='black')
             plt.axis('off')
             plt.gca().set_aspect('equal', adjustable='box')
             plt.tight_layout()
-            filename = os.path.join(output_dir, f"plot_{idx}.png")
-            plt.savefig(filename, cmap='gray')
+
+            # Save the plot to an in-memory bytes buffer
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', cmap='gray')
+            buf.seek(0)
             plt.close()
 
-            # Read the image as a grayscale numpy array
-            image = plt.imread(filename)[:,:,0]  # Take one channel since it's grayscale
-            # Convert the grayscale image to RGB
-            rgb_image = gray2rgb(image)
-            # Crop or resize if needed to make it 36x36 (since you mentioned the size is not fixed)
+            # Read the image buffer using PIL and convert to numpy array
+            image = Image.open(buf)
+            image_array = np.asarray(image)
+            image_array = image_array / 255.0
+            
+            # Since the image saved is RGBA, we convert it to grayscale and then to RGB
+            gray_image = image_array[:,:,0]  # Taking one channel since it's grayscale
+            rgb_image = gray2rgb(gray_image)
+            
+            # Crop or resize if needed to make it 36x36
             if rgb_image.shape[0] != 36 or rgb_image.shape[1] != 36:
                 rgb_image = rgb_image[:36, :36]
             image_arrays.append(rgb_image)
@@ -166,7 +176,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Add the list of numpy arrays as a new column to grouped_df
         self.grouped_df['image_arrays'] = image_arrays
 
-        QtWidgets.QMessageBox.information(self, "Info", f"Plots saved in the '{output_dir}' directory and images added to the dataframe!")
+        QtWidgets.QMessageBox.information(self, "Info", "Images added to the dataframe!")
         print(self.grouped_df['image_arrays'][0].shape)
 
     def run_clustering(self):
@@ -308,6 +318,18 @@ class MainWindow(QtWidgets.QMainWindow):
         plt.legend()
         plt.gca().set_aspect('equal', adjustable='box')
         plt.show()
+
+    def load_dataframe(self):
+        options = QtWidgets.QFileDialog.Options()
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load Pickle File", "", "Pickle Files (*.pkl);;All Files (*)", options=options)
+        if file_path:
+            # Read the DataFrame from the pickle file
+            self.grouped_df = pd.read_pickle(file_path)
+            
+            # Display the loaded DataFrame
+            model = pandasModel(self.grouped_df)
+            self.table_view.setModel(model)
+            QtWidgets.QMessageBox.information(self, "Info", "DataFrame loaded successfully!")
 
 
 class pandasModel(QtCore.QAbstractTableModel):
