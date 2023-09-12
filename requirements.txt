@@ -1,0 +1,11 @@
+pyqt
+pandas
+matplotlib
+numpy
+scikit-learn
+tensorflow
+ipython
+scikit-image
+pillow
+tqdm
+
